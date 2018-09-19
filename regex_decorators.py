@@ -59,9 +59,9 @@ def apply_regex_exps(**regex_patterns):
                 keyword = regex_list[i]
                 if keyword in list(regex_dict.keys()):
                     pattern = regex_dict.get('{}'.format(keyword))
-                    global result
                     result = pattern.sub("", g)
-            return result
+                    g = result
+            return g
         return wrapper
     return decorator
 # ----------------------------------------------------------------
