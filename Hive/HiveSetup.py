@@ -6,6 +6,7 @@ N-grams data into a structured data table.
 """
 import os
 import sys
+from itertools import chain
 from subprocess import (PIPE, Popen, call, check_output,
                         check_call, CalledProcessError)
 from pprint import pprint
@@ -36,7 +37,7 @@ class Hive:
 
 
     def __init__(self):
-        self.hive_warehouse     = None
+        self.hive_warehouse     = {}
         self.hive_tables        = None
         self.current_database   = None
         self.databases          = None
@@ -48,39 +49,75 @@ class Hive:
             # -  get the hive database information
             self.databases = Popen('hive -e "show databases;"', stdout=PIPE, shell=True).communicate()
             self.databases = str(list(self.databases)[0]).split("\n")[:-1]
-
-
-            # - get the hive table information
-            self.hive_tables = Popen('hive -e "use drw; show tables;"', stdout=PIPE, shell=True).communicate()
-            self.hive_tables = str(list(self.hive_tables)[0]).split("\n")[:-1]
-
             for db in self.databases:
+                pprint("Database: {}".format(db))
                 if db not in self.hive_warehouse:
                     self.hive_warehouse[db] = {}
                     hive_cmd = 'hive -e "use %s; show tables;"' % db
-                    pprint(hive_cmd)
-                    hive_payload = Popen(hive_cmd, stdin=PIPE, shell=True).communicate()
+                    hive_payload = Popen(hive_cmd, stdout=PIPE, shell=True).communicate()
                     hive_payload = str(list(hive_payload)[0]).split("\n")[:-1]
-                    pprint(hive_payload)
+                    pprint("Hive Payload: {}".format(hive_payload))
                     # - create an internal dictionary to hold the table names
                     for h in hive_payload:
                         if h not in self.hive_warehouse[db]:
-                            table_cmd = 'hive -e "describe %s.%s;"' %(db, h)
-                            hive_table = Popen(table_cmd, stdin=PIPE, shell=True).communicate()
-                            self.hive_warehouse[db][h] = list(map(lambda x: x[:2],
-                                                    [str(h).split('\t') for h in str(list(hive_table)[0]) \
-                                                                                                .split('\n')]))
-                            self.hive_warehouse[db][h] = [[str(x).rstrip() for x in row]
-                                                                for row in self.hive_warehouse[db][h] if len(row) > 1]
-                            pprint(self.hive_warehouse[db][h])
+                            self.hive_warehouse[db][h] = []
+                            columns_cmd = 'hive -e "describe %s.%s;"' % (db, h)
+                            columns_payload = Popen(columns_cmd, stdout=PIPE, shell=True).communicate()
+                            columns_payload =  list(filter(lambda x: len(x) >= 3,
+                                                    [str(h).split('\t')
+                                                     for h in str(list(columns_payload)[0]).split('\n')]))
+                            columns_payload = list(map(lambda x: x[:2],
+                                                       [[str(x).rstrip() for x in row]
+                                                        for row in columns_payload if len(row) > 1]))
+                            # - update the list
+                            self.hive_warehouse[db][h] = columns_payload
         except:
             pass
         finally:
             pass
 
-
-    def RunQuery(self):
+    def run_query(self):
         """
-        Create a HiveQL query.
+        Run the initial hive query to
+        create the hive database mapping file.
         :return:
         """
+        pass
+
+
+
+
+
+hive_context_one = Hive()
+pprint(hive_context_one.hive_warehouse)
+
+#database_payload = 'hive -e "show databases;"'
+#hive_databases = Popen(database_payload, stdin=PIPE, stdout=PIPE, shell=True).communicate()
+#hive_databases = str(list(hive_databases)[0]).split("\n")[:-1]
+#print("Hive Databases\n============\n{}".format(hive_databases))
+
+
+
+
+# - this works to get each table name
+#table_payload = 'hive -e "describe %s.%s;"' % (hive_databases[4], 'sa_dms_mapping')
+#pprint(table_payload)
+#hive_table = Popen(table_payload, stdin=PIPE, stdout=PIPE, shell=True).communicate()
+#hive_table = list(filter(lambda x: len(x) >= 3, [str(h).split('\t') for h in str(list(hive_table)[0]).split('\n')]))
+#hive_table = list(map(lambda x: x[:2], [[str(x).rstrip() for x in row] for row in hive_table if len(row) > 1]))
+#headers = ['Column Name', 'Data Type']
+#hive_df = pd.DataFrame(hive_table, columns=headers)
+#print(hive_df)
+
+#hive_table = [[str(x).rstrip() for x in row] for row in hive_table if len(row) > 1]
+
+
+
+#hive_table = [str(h).split('\t') for h in str(list(hive_table)[0]).split('\n')]
+#hive_table = list(chain.from_iterable(list(map(lambda x: x[:2],
+#                    [str(h).split('\t') for h in str(list(hive_table)[0]).split('\n')]))))
+#hive_table =  list(filter(lambda x: len(x)>=3 , [str(h).split('\t') for h in str(list(hive_table)[0]).split('\n')]))
+#print("Hive Tables\n========\n{}".format(hive_table))
+#hive_table = list(map(lambda x: x[:2], [str(h).split('\t') for h in str(list(hive_table)[0]).split('\n')]))
+#hive_table = [[str(x).rstrip() for x in row] for row in hive_table if len(row) > 1]
+
